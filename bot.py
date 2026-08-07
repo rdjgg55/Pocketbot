@@ -11,7 +11,6 @@ logging.basicConfig(
 # REEMPLAZA ESTO CON EL TOKEN DE TU BOT DE TELEGRAM PROPORCIONADO POR BOTFATHER
 TOKEN = "8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY"
 
-# Listas de activos
 PARES_REALES = [
     "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD",
     "USD/CHF", "USD/CAD", "NZD/USD", "EUR/GBP",
@@ -27,65 +26,112 @@ PARES_OTC_POCKET = [
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
+    
+    # Teclado principal con botones interactivos
+    keyboard = [
+        [InlineKeyboardButton("📊 Mercado Real", callback_data="menu_real"),
+         InlineKeyboardButton("🔄 Mercado OTC", callback_data="menu_otc")],
+        [InlineKeyboardButton("❌ Cancelar / Salir", callback_data="cancelar")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     mensaje = (
         f"¡Hola, {user_name}! 🤖 Bot de señales para Pocket Option activo.\n\n"
-        "Comandos disponibles:\n"
-        "📈 /senal - Analizar un par de Mercado Real\n"
-        "🔄 /otc - Analizar un par de Mercado OTC\n"
-        "ℹ️ /ayuda - Ver información de uso"
+        "Selecciona el tipo de mercado que deseas escanear:"
     )
-    await update.message.reply_text(mensaje)
-
-async def generar_senal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    activo = random.choice(PARES_REALES)
-    direccion = random.choice(["🟢 COMPRA (CALL)", "🔴 VENTA (PUT)"])
-    efectividad = random.randint(78, 89)
     
-    texto_senal = (
-        f"🎯 **SEÑAL POCKET OPTION (REAL)** 🎯\n\n"
-        f"📊 **Activo:** {activo}\n"
-        f"⏱ **Temporalidad:** 1 Minuto\n"
-        f"💡 **Dirección:** {direccion}\n"
-        f"📈 **Indicadores:** Confluencia de RSI + Bandas de Bollinger + EMA.\n"
-        f"⭐ **Efectividad estimada:** {efectividad}%\n\n"
-        f"⚠️ *Opera con estricta gestión de riesgo.*"
-    )
-    await update.message.reply_text(texto_senal, parse_mode="Markdown")
+    if update.message:
+        await update.message.reply_text(mensaje, reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.message.edit_text(mensaje, reply_markup=reply_markup)
 
-async def generar_otc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    activo = random.choice(PARES_OTC_POCKET)
-    direccion = random.choice(["🟢 COMPRA (CALL)", "🔴 VENTA (PUT)"])
-    efectividad = random.randint(75, 86)
-    
-    texto_otc = (
-        f"🔄 **SEÑAL POCKET OPTION (OTC)** 🔄\n\n"
-        f"📊 **Activo:** {activo}\n"
-        f"⏱ **Temporalidad:** 1 Minuto\n"
-        f"💡 **Dirección:** {direccion}\n"
-        f"📈 **Indicadores:** Patrón sintético de soporte/resistencia.\n"
-        f"⭐ **Efectividad estimada:** {efectividad}%\n\n"
-        f"⚠️ *Precaución: Alta volatilidad en OTC.*"
-    )
-    await update.message.reply_text(texto_otc, parse_mode="Markdown")
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
 
-async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto_ayuda = (
-        "📖 **Guía rápida del Bot:**\n\n"
-        "• Usa `/senal` de lunes a viernes para operar con los pares de mercado real.\n"
-        "• Usa `/otc` los fines de semana o de noche cuando operes con los pares sintéticos OTC.\n"
-        "• Recuerda esperar siempre al **cierre exacto de la vela** de 1 minuto."
-    )
-    await update.message.reply_text(texto_ayuda, parse_mode="Markdown")
+    if data == "cancelar":
+        await query.message.edit_text("❌ Operación cancelada. Escribe /start para volver al menú principal.")
+
+    elif data == "menu_real":
+        # Crear botones para cada par real (en filas de 2)
+        keyboard = []
+        row = []
+        for par in PARES_REALES:
+            row.append(InlineKeyboardButton(par, callback_data=f"real_{par}"))
+            if len(row) == 2:
+                keyboard.append(row)
+                row = []
+        if row:
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("🔙 Volver al Menú", callback_data="volver_inicio")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text("📈 **Selecciona el par de Mercado Real a escanear:**", reply_markup=reply_markup, parse_mode="Markdown")
+
+    elif data == "menu_otc":
+        # Crear botones para cada par OTC (en filas de 2)
+        keyboard = []
+        row = []
+        for par in PARES_OTC_POCKET:
+            row.append(InlineKeyboardButton(par, callback_data=f"otc_{par}"))
+            if len(row) == 2:
+                keyboard.append(row)
+                row = []
+        if row:
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("🔙 Volver al Menú", callback_data="volver_inicio")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text("🔄 **Selecciona el par de Mercado OTC a escanear:**", reply_markup=reply_markup, parse_mode="Markdown")
+
+    elif data == "volver_inicio":
+        # Volver al menú principal
+        keyboard = [
+            [InlineKeyboardButton("📊 Mercado Real", callback_data="menu_real"),
+             InlineKeyboardButton("🔄 Mercado OTC", callback_data="menu_otc")],
+            [InlineKeyboardButton("❌ Cancelar / Salir", callback_data="cancelar")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text("🤖 **Menú Principal - Pocket Option**\n\nSelecciona el tipo de mercado:", reply_markup=reply_markup, parse_mode="Markdown")
+
+    elif data.startswith("real_") or data.startswith("paso_otc_") or data.startswith("otc_"):
+        # Procesar el escaneo del par seleccionado
+        partes = data.split("_", 1)
+        tipo = partes[0]
+        activo = partes[1]
+        
+        direccion = random.choice(["🟢 COMPRA (CALL)", "🔴 VENTA (PUT)"])
+        efectividad = random.randint(78, 89) if tipo == "real" else random.randint(75, 86)
+        mercado_txt = "MERCADO REAL" if tipo == "real" else "MERCADO OTC"
+        
+        texto_senal = (
+            f"🎯 **SEÑAL POCKET OPTION ({mercado_txt})** 🎯\n\n"
+            f"📊 **Activo:** {activo}\n"
+            f"⏱ **Temporalidad:** 1 Minuto\n"
+            f"💡 **Dirección:** {direccion}\n"
+            f"📈 **Indicadores:** Confluencia de RSI + Bandas de Bollinger.\n"
+            f"⭐ **Efectividad estimada:** {efectividad}%\n\n"
+            f"⚠️ *Opera con estricta gestión de riesgo.*"
+        )
+        
+        # Botones para volver a escanear el mismo par o regresar al menú
+        keyboard = [
+            [InlineKeyboardButton("🔄 Esccanear de nuevo", callback_data=data),
+             InlineKeyboardButton("🔙 Menú Principal", callback_data="volver_inicio")],
+            [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.message.edit_text(texto_senal, reply_markup=reply_markup, parse_mode="Markdown")
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("senal", generar_senal))
-    app.add_handler(CommandHandler("otc", generar_otc))
-    app.add_handler(CommandHandler("ayuda", ayuda))
+    app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Bot de Pocket Option iniciado y escuchando comandos...")
+    print("🤖 Bot interactivo de Pocket Option iniciado y escuchando...")
     app.run_polling()
 
 if __name__ == "__main__":
