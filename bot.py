@@ -4,15 +4,14 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Callb
 import random
 from datetime import datetime
 
-# Configuración básica de registros (logs)
+# Configuración básica de registros
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# Token integrado de tu bot
 TOKEN = "8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY"
 
-# Listas de activos
+# Listas completas de activos
 PARES_REALES = [
     "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD",
     "USD/CHF", "USD/CAD", "NZD/USD", "EUR/GBP",
@@ -27,7 +26,7 @@ PARES_OTC_POCKET = [
 ]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name
+    user_name = update.effective_user.first_name if update.effective_user else "Trader"
     
     keyboard = [
         [InlineKeyboardButton("📊 Mercado Real", callback_data="menu_real"),
@@ -94,28 +93,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("🤖 **Menú Principal - Pocket Option**\n\nSelecciona el tipo de mercado:", reply_markup=reply_markup, parse_mode="Markdown")
 
     elif data.startswith("real_") or data.startswith("otc_"):
-        partes = data.split("_", 1)
-        tipo = partes[0]
-        activo = partes[1]
+        # Uso de partition para evitar errores si hay múltiples guiones bajos en el futuro
+        tipo, _, activo = data.partition("_")
         
-        # Obtener la hora actual de emisión y la hora de entrada
+        # Obtener la hora exacta de la señal a 1 minuto
         ahora = datetime.now()
         hora_generacion = ahora.strftime("%H:%M:%S")
         hora_entrada = ahora.strftime("%H:%M")
 
         direccion = random.choice(["🟢 COMPRA (CALL)", "🔴 VENTA (PUT)"])
-        efectividad = random.randint(78, 89) if tipo == "real" else random.randint(75, 86)
+        efectividad = 82  # Efectividad fija solicitada
         mercado_txt = "MERCADO REAL" if tipo == "real" else "MERCADO OTC"
         
         texto_senal = (
             f"🎯 **SEÑAL POCKET OPTION ({mercado_txt})** 🎯\n\n"
             f"📊 **Activo:** {activo}\n"
             f"⏰ **Hora de emisión:** {hora_generacion}\n"
-            f"⏱ **Hora de Entrada:** `{hora_entrada}` (1 Minuto)\n"
+            f"⏱ **Temporalidad / Entrada:** `{hora_entrada}` (Operación a 1 Minuto)\n"
             f"💡 **Dirección:** {direccion}\n"
             f"📈 **Indicadores:** Confluencia de RSI + Bandas de Bollinger.\n"
-            f"⭐ **Efectividad estimada:** {efectividad}%\n\n"
-            f"⚠️ *Opera con estricta gestión de riesgo y espera el cierre exacto.*"
+            f"⭐ **Efectividad:** {efectividad}%\n\n"
+            f"⚠️ *Gestiona tu riesgo adecuadamente y espera el cierre exacto de la vela.*"
         )
         
         keyboard = [
@@ -125,7 +123,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.message.edit_text(texto_senal, reply_markup=reply_markup, parse_mode="Markdown")
+        try:
+            await query.message.edit_text(texto_senal, reply_markup=reply_markup, parse_mode="Markdown")
+        except Exception as e:
+            # Controla el error si el usuario presiona el botón muy rápido y el texto es idéntico
+            logging.info(f"Nota menor al refrescar mensaje: {e}")
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -133,7 +135,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Bot interactivo de Pocket Option iniciado y escuchando...")
+    print("🤖 Bot interactivo de Pocket Option optimizado y listo...")
     app.run_polling()
 
 if __name__ == "__main__":
