@@ -1,25 +1,3 @@
-```python
-# ============================================================
-# BOT DE SEÑALES V4
-# Telegram + Yahoo Finance + TA + Backtesting
-#
-# IMPORTANTE:
-# - NO pongas el token directamente aquí.
-# - Railway:
-#     TELEGRAM_BOT_TOKEN = token_nuevo_de_BotFather
-#
-# Temporalidades:
-#     1m / 2m / 5m
-#
-# Mercados:
-#     REAL / OTC
-#
-# NOTA OTC:
-# Yahoo Finance NO proporciona el feed OTC específico
-# de Pocket Option. El motor OTC de esta versión utiliza
-# el par real como PROXY. No debe interpretarse como
-# precio OTC real.
-# ============================================================
 
 import os
 import json
@@ -54,7 +32,7 @@ from telegram.ext import (
 # CONFIGURACIÓN
 # ============================================================
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TOKEN = os.getenv("8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY")
 
 if not TOKEN:
     raise RuntimeError(
@@ -2040,4 +2018,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-```
