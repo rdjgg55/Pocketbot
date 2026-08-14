@@ -896,9 +896,10 @@ async def scan_signal(
     )
 
     message = (
-        f"{emoji} {direction}\n\n"
-        f"⏰ Entrada: {entry_text}\n"
-        f"⏱ Tiempo: {duration}"
+    f"{emoji} {direction}\n"
+    f"💎 Par: {pair}\n"
+    f"⏰ Entrada: {entry_text}\n"
+    f"⏱ Tiempo: {duration}"
     )
 
     keyboard = [
