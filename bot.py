@@ -35,8 +35,8 @@ if not TOKEN:
         "Configúrala en Railway > Variables."
     )
 
-MIN_SCORE = 75
-MIN_CANDLES = 80
+MIN_SCORE = 60
+MIN_CANDLES = 60
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
