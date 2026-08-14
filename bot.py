@@ -27,7 +27,7 @@ from telegram.ext import (
 # CONFIGURACIÓN
 # ============================================================
 
-TOKEN = os.getenv("8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY")
+TOKEN = "8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY"
 
 if not TOKEN:
     raise RuntimeError(
