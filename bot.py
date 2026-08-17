@@ -13,7 +13,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-TOKEN = "8141135207:AAEleQ5N1lbuNwTqWAeiuJmKnGtF57yEBg0"
+TOKEN = "8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY"
 TWELVE_DATA_API_KEY = "6301b521ed9142d7887bebf68cc59566"  # Coloca aquí tu API Key gratuita de Twelve Data
 
 # Pares de Mercado Real compatibles con Twelve Data (Formato Forex)
