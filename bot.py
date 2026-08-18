@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-TOKEN = "8141135207:AAEleQ5N1lbuNwTqWAeiuJmKnGtF57yEBg0"
+TOKEN = "8845724881:AAEpMM4fkKdFohyP553vWKbkItXVCE-f3QY"
 
 # Diccionario amplio de Pares de Mercado Real vinculados a Yahoo Finance
 PARES_REALES = {
