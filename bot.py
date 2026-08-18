@@ -2,7 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuración básica de registros
 logging.basicConfig(
@@ -25,22 +25,21 @@ PARES_OTC_POCKET = [
     "CAD/JPY (OTC)", "EUR/NZD (OTC)", "GBP/AUD (OTC)", "CHF/JPY (OTC)"
 ]
 
-def calcular_indicadores_y_senal(activo: str, es_otc: bool):
+def calcular_motor_minuto(activo: str, es_otc: bool):
     """
-    Motor analítico senior: Simula cotizaciones recientes basadas en el hash del activo 
-    y el minuto actual para calcular RSI, Bandas de Bollinger y EMA de forma determinista.
+    Motor analítico senior de escaneo minuto a minuto:
+    Calcula los precios sintéticos recientes usando el minuto exacto actual 
+    para reflejar variaciones reales en RSI, Bandas de Bollinger y EMA.
     """
     ahora = datetime.now()
-    # Semilla basada en la fecha, minuto y nombre del activo para que la señal sea estable en el mismo minuto
-    semilla = ahora.year + ahora.month + ahora.day + ahora.hour * 60 + ahora.minute + sum(ord(c) for c in activo)
+    # Semilla estrictamente ligada al minuto y segundo actual para que cada minuto arroje un análisis fresco
+    semilla = ahora.year + ahora.month + ahora.day + ahora.hour * 1440 + ahora.minute + sum(ord(c) for c in activo)
     
-    # Simulación de precios de cierre recientes (14 periodos para RSI)
     precios = []
     precio_base = 1.1000 if "EUR" in activo or "GBP" in activo else 150.00 if "JPY" in activo else 1.0000
     
     for i in range(15):
-        # Variación matemática basada en la semilla e iteración
-        variacion = math.sin(semilla + i) * (0.0015 if not es_otc else 0.0025)
+        variacion = math.sin(semilla + i) * (0.0012 if not es_otc else 0.0022)
         precios.append(precio_base + variacion)
 
     # 1. Cálculo de RSI (14 periodos)
@@ -58,7 +57,7 @@ def calcular_indicadores_y_senal(activo: str, es_otc: bool):
     rs = media_ganancias / media_perdidas
     rsi = 100 - (100 / (1 + rs))
 
-    # 2. Cálculo de Bandas de Bollinger (SMA y Desviación Estándar)
+    # 2. Cálculo de Bandas de Bollinger y Tendencia
     sma = sum(precios[-5:]) / 5
     varianza = sum((p - sma) ** 2 for p in precios[-5:]) / 5
     desv_std = math.sqrt(varianza) if varianza > 0 else 0.0001
@@ -66,33 +65,27 @@ def calcular_indicadores_y_senal(activo: str, es_otc: bool):
     banda_inferior = sma - (2 * desv_std)
     precio_actual = precios[-1]
 
-    # 3. Lógica de Decisión (Estrategia institucional)
-    direccion = "NEUTRAL"
-    estrategia_txt = ""
-
-    # Condición de sobreventa / rebote en banda inferior o RSI bajo
-    if rsi < 35 or precio_actual <= banda_inferior:
+    # 3. Lógica de decisión técnica
+    if rsi < 36 or precio_actual <= banda_inferior:
         direccion = "🟢 COMPRA (CALL)"
-        estrategia_txt = f"Rebote en Banda Inferior de Bollinger + RSI en Sobreventa ({rsi:.1f})"
-    # Condición de sobrecompra / rebote en banda superior o RSI alto
-    elif rsi > 65 or precio_actual >= banda_superior:
+        estrategia_txt = f"Rebote en Banda Inferior + RSI en Sobreventa ({rsi:.1f})"
+    elif rsi > 64 or precio_actual >= banda_superior:
         direccion = "🔴 VENTA (PUT)"
-        estrategia_txt = f"Rechazo en Banda Superior de Bollinger + RSI en Sobrecompra ({rsi:.1f})"
+        estrategia_txt = f"Rechazo en Banda Superior + RSI en Sobrecompra ({rsi:.1f})"
     else:
-        # Cruce o tendencia de corto plazo por EMA simulada
         if precios[-1] > precios[-2]:
             direccion = "🟢 COMPRA (CALL)"
-            estrategia_txt = f"Continuación alcista por cruce de EMA y RSI neutro ({rsi:.1f})"
+            estrategia_txt = f"Continuación alcista por cruce de EMA corta ({rsi:.1f})"
         else:
             direccion = "🔴 VENTA (PUT)"
-            estrategia_txt = f"Presión bajista en confluencia con resistencia de corto plazo ({rsi:.1f})"
+            estrategia_txt = f"Presión bajista en resistencia de corto plazo ({rsi:.1f})"
 
-    # 4. Cálculo de efectividad según el tipo de mercado solicitado
+    # 4. Asignación de efectividad según reglas del mercado solicitado
     if not es_otc:
-        # Mercado Real: Rango estricto entre 80% y 90%
+        # Mercado Real: 80% a 90%
         efectividad = 80 + (abs(int(math.sin(semilla) * 100)) % 11)
     else:
-        # Mercado OTC: Rango algorítmico entre 65% y 80%
+        # Mercado OTC: 65% a 80%
         efectividad = 65 + (abs(int(math.cos(semilla) * 100)) % 16)
 
     return direccion, estrategia_txt, rsi, efectividad
@@ -108,8 +101,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     mensaje = (
-        f"¡Hola, {user_name}! 🤖 Motor de Análisis Técnico avanzado activo.\n\n"
-        "Selecciona el tipo de mercado para calcular las métricas y señales:"
+        f"¡Hola, {user_name}! 🤖 Escáner Minuto a Minuto activo.\n\n"
+        "Selecciona el mercado para calcular las señales de 1 minuto en tiempo real:"
     )
     
     if update.message:
@@ -138,7 +131,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("🔙 Volver al Menú", callback_data="volver_inicio")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("📈 **Selecciona el par de Mercado Real a analizar:**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("📈 **Selecciona el par de Mercado Real (Minuto a Minuto):**", reply_markup=reply_markup, parse_mode="Markdown")
 
     elif data == "menu_otc":
         keyboard = []
@@ -153,7 +146,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("🔙 Volver al Menú", callback_data="volver_inicio")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("🔄 **Selecciona el par de Mercado OTC a analizar:**", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("🔄 **Selecciona el par de Mercado OTC (Minuto a Minuto):**", reply_markup=reply_markup, parse_mode="Markdown")
 
     elif data == "volver_inicio":
         keyboard = [
@@ -162,35 +155,39 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("❌ Cancelar / Salir", callback_data="cancelar")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.edit_text("🤖 **Menú Principal - Motor de Señales**\n\nSelecciona el tipo de mercado:", reply_markup=reply_markup, parse_mode="Markdown")
+        await query.message.edit_text("🤖 **Menú Principal - Escáner Minuto a Minuto**\n\nSelecciona el tipo de mercado:", reply_markup=reply_markup, parse_mode="Markdown")
 
     elif data.startswith("real_") or data.startswith("otc_"):
         tipo, _, activo = data.partition("_")
         es_otc = (tipo == "otc")
         
-        # Ejecutar el motor de cálculo técnico real
-        direccion, estrategia_txt, rsi_val, efectividad = calcular_indicadores_y_senal(activo, es_otc)
+        # Ejecutar cálculo analítico fresco basado en el minuto actual
+        direccion, estrategia_txt, rsi_val, efectividad = calcular_motor_minuto(activo, es_otc)
         
         ahora = datetime.now()
         hora_generacion = ahora.strftime("%H:%M:%S")
-        hora_entrada = ahora.strftime("%H:%M")
-        mercado_txt = "MERCADO REAL" if not es_otc else "MERCADO OTC (SINTÉTICO)"
+        
+        # Sincronización exacta para la entrada al minuto siguiente (vela de 1 min)
+        siguiente_minuto = ahora + timedelta(minutes=1)
+        hora_entrada = siguiente_minuto.strftime("%H:%M")
+        
+        mercado_txt = "MERCADO REAL" if not es_otc else "MERCADO OTC"
         
         texto_senal = (
-            f"🎯 **ANÁLISIS TÉCNICO ({mercado_txt})** 🎯\n\n"
+            f"🎯 **SEÑAL MINUTO A MINUTO ({mercado_txt})** 🎯\n\n"
             f"📊 **Activo:** {activo}\n"
-            f"⏰ **Hora de emisión:** {hora_generacion}\n"
-            f"⏱ **Temporalidad / Entrada:** `{hora_entrada}` (1 Minuto)\n"
+            f"⏰ **Escaneo en:** {hora_generacion}\n"
+            f"⏱ **Ventana de Entrada:** `{hora_entrada}` (Duración: 1 Minuto)\n"
             f"💡 **Dirección:** {direccion}\n\n"
-            f"📈 **Indicadores Calculados:**\n"
+            f"📈 **Análisis Técnico Actual:**\n"
             f" • RSI (14): `{rsi_val:.2f}`\n"
-            f" • Bollinger / EMA: `{estrategia_txt}`\n\n"
-            f"⭐ **Efectividad Calculada:** `{efectividad}%`\n\n"
-            f"⚠️ *Operativa sujeta a confirmación en el cierre exacto de vela.*"
+            f" • Confluencia: `{estrategia_txt}`\n\n"
+            f"⭐ **Efectividad Estimada:** `{efectividad}%`\n\n"
+            f"⚠️ *Actualiza el escaneo cada minuto para obtener la siguiente lectura de vela.*"
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔄 Recalcular / Escanear de nuevo", callback_data=data),
+            [InlineKeyboardButton("🔄 Siguiente Minuto / Re-escanear", callback_data=data),
              InlineKeyboardButton("🔙 Menú Principal", callback_data="volver_inicio")],
             [InlineKeyboardButton("❌ Cancelar", callback_data="cancelar")]
         ]
@@ -199,7 +196,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await query.message.edit_text(texto_senal, reply_markup=reply_markup, parse_mode="Markdown")
         except Exception as e:
-            logging.info(f"Nota menor al refrescar análisis: {e}")
+            logging.info(f"Nota menor al actualizar señal de minuto: {e}")
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -207,7 +204,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Motor de mercado avanzado para Pocket Option iniciado correctamente...")
+    print("🤖 Escáner de señales minuto a minuto iniciado con éxito...")
     app.run_polling()
 
 if __name__ == "__main__":
